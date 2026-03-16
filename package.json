@@ -1,0 +1,36 @@
+{
+  "name": "zhilian-recruit-agent",
+  "version": "1.0.0",
+  "description": "智联招聘本地招聘 Agent，基于 OpenClaw 工作流设计",
+  "type": "module",
+  "main": "dist/recruit-agent/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "agent:init": "tsx src/recruit-agent/main.ts init --config config/recruit-agent.json",
+    "agent:jobs": "tsx src/recruit-agent/main.ts jobs:sync --config config/recruit-agent.json",
+    "agent:recommend": "tsx src/recruit-agent/main.ts recommend:run --config config/recruit-agent.json",
+    "agent:search": "tsx src/recruit-agent/main.ts search:run --config config/recruit-agent.json",
+    "agent:potential": "tsx src/recruit-agent/main.ts potential:run --config config/recruit-agent.json",
+    "agent:interaction": "tsx src/recruit-agent/main.ts interaction:run --config config/recruit-agent.json",
+    "agent:workflow": "tsx src/recruit-agent/main.ts workflow:run --config config/recruit-agent.json",
+    "agent:daemon": "tsx src/recruit-agent/main.ts daemon:run --config config/recruit-agent.json",
+    "agent:report": "tsx src/recruit-agent/main.ts report:daily --config config/recruit-agent.json",
+    "playwright:install": "playwright install chromium"
+  },
+  "keywords": [
+    "openclaw",
+    "recruiting",
+    "zhilian",
+    "agent"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "playwright": "^1.58.2"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}

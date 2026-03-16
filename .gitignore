@@ -1,0 +1,12 @@
+node_modules
+dist
+playwright-report
+test-results
+data/browser-profile/
+data/interaction-logs/
+data/action-logs/
+data/resumes/
+data/reports/
+data/*.json
+data/*.md
+!.gitkeep

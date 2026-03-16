@@ -1,0 +1,123 @@
+{
+  "platform": "zhilian",
+  "dryRun": false,
+  "browser": {
+    "baseUrl": "https://rd6.zhaopin.com",
+    "headless": false,
+    "slowMoMs": 150,
+    "userDataDir": "./data/browser-profile",
+    "defaultTimeoutMs": 15000
+  },
+  "storage": {
+    "stateFile": "./data/recruit-agent-state.json",
+    "reportDir": "./data/reports",
+    "resumeDir": "./data/resumes",
+    "interactionLogDir": "./data/interaction-logs",
+    "actionLogDir": "./data/action-logs"
+  },
+  "jobSync": {
+    "syncLimit": 5,
+    "activeJobIds": []
+  },
+  "search": {
+    "maxQueriesPerJob": 4,
+    "maxCandidatesPerQuery": 10
+  },
+  "interaction": {
+    "unreadLimit": 20,
+    "sensitiveKeywords": ["薪资", "年包", "五险一金", "offer", "入职", "出差", "加班", "合同"]
+  },
+  "daemon": {
+    "enabled": false,
+    "interactionIntervalMinutes": 1,
+    "recommendIntervalMinutes": 30,
+    "searchIntervalMinutes": 30,
+    "potentialIntervalMinutes": 45,
+    "jobsSyncIntervalMinutes": 180,
+    "reportIntervalMinutes": 120
+  },
+  "llm": {
+    "enabled": false,
+    "provider": "openai_compatible",
+    "model": "gpt-4o-mini",
+    "baseUrl": "https://api.openai.com/v1",
+    "apiKeyEnv": "OPENAI_API_KEY",
+    "timeoutMs": 10000,
+    "maxContextTurns": 12,
+    "temperature": 0.2
+  },
+  "job": {
+    "id": "power-design-manager",
+    "companyName": "示例人力服务公司",
+    "title": "电力设计总工",
+    "cityNames": ["达州", "苏州"],
+    "salaryRange": "40-60K",
+    "requiredEducation": "本科",
+    "minExperienceYears": 8,
+    "mustHaveKeywords": ["电力", "设计", "项目管理"],
+    "niceToHaveKeywords": ["变电", "输电", "新能源", "设计院"],
+    "excludeKeywords": ["兼职", "销售", "主播"],
+    "openingSummary": "负责电力工程全过程设计管理、技术方案评审及团队技术指导。"
+  },
+  "guardrails": {
+    "dailyContactLimit": 20,
+    "hourlyContactLimit": 8,
+    "maxConsecutiveErrors": 3,
+    "cooldownHours": 72,
+    "minDelayMs": 45000,
+    "maxDelayMs": 90000,
+    "manualReviewScoreMin": 55,
+    "autoContactScoreMin": 72,
+    "followUpAfterHours": 24
+  },
+  "messages": {
+    "opening": "您好，我们是一家高新信息技术集团，目前岗位地址在：鞍山、苏州、达州、北京、长春，看到您有最近均从事该相关工作，请问是否有意向了解一下我公司。",
+    "resumeRequest": "请问能否留下您的简历，以方便我们就您的简历匹配度进一步沟通？",
+    "followUp": "你好 {{name}}，我这边补充跟进一下，{{jobTitle}}岗位目前还在推进。如果你近期有机会看消息，欢迎把简历发我，我可以尽快帮你安排。",
+    "rejection": "好的，如果您这边随时需要了解其他空缺岗位，可以交换微信，随时联系我。",
+    "handover": "请稍等",
+    "resumeReceivedAck": "感谢您对公司的认可，我们已经收到您的简历，后续会有人事专员与您对接，请保持您的手机畅通。"
+  },
+  "selectors": {
+    "navJobCenter": "text=职位中心, a:has-text('职位中心'), div:has-text('职位中心')",
+    "navRecommend": "text=推荐人才, a:has-text('推荐人才'), div:has-text('推荐人才')",
+    "navSearch": "text=搜索人才, a:has-text('搜索人才'), div:has-text('搜索人才')",
+    "navPotential": "text=潜在人才, a:has-text('潜在人才'), div:has-text('潜在人才')",
+    "navInteraction": "text=互动, a:has-text('互动'), div:has-text('互动')",
+    "pageReadyMarker": "body",
+    "jobCards": ".job-card, .position-card, [data-testid='job-card'], .job-item, [class*='job-item']",
+    "jobTitle": ".job-title, .position-name, [data-testid='job-title'], .job-item__title, [class*='job-item__title']",
+    "jobMeta": ".job-meta, .position-meta, [data-testid='job-meta'], .job-item__main--left, [class*='job-item__main--left'], .job-item__main, [class*='job-item__main']",
+    "jobStatus": ".job-status, .position-status, [data-testid='job-status'], .job-item__footer-title__time, [class*='job-item__footer-title__time']",
+    "jobLink": "a[href*='job'], a[href*='position'], .job-card a",
+    "jobDetailPanel": ".job-detail, .position-detail, [data-testid='job-detail']",
+    "jobResponsibilities": ".job-responsibility, .job-detail .responsibility, [data-testid='job-responsibility']",
+    "jobRequirements": ".job-requirement, .job-detail .requirement, [data-testid='job-requirement']",
+    "searchInput": "input[placeholder*='搜索'], input[placeholder*='人才'], .search-input input",
+    "searchButton": "button:has-text('搜索'), .search-btn, [aria-label='搜索']",
+    "searchKeywordChips": ".search-tag, .keyword-chip, [data-testid='search-chip']",
+    "candidateCards": "[data-testid='candidate-card'], .candidate-card, .resume-card, .recommend-item__inner-content, [class*='recommend-item__inner-content'], .search-resume-item-wrap, .search-resume-item, .resume-card-exp, [class*='search-resume-item']",
+    "candidateName": ".name, .candidate-name, [data-testid='candidate-name'], .resume-name, [class*='resume-name'], .talent-basic-info__name, [class*='talent-basic-info__name']",
+    "candidateMeta": ".meta, .candidate-meta, [data-testid='candidate-meta'], .resume-info, [class*='resume-info'], .talent-basic-info__basic, [class*='talent-basic-info__basic']",
+    "candidateTags": ".tag, .tags .item, [data-testid='candidate-tag'], .resume-tag, [class*='resume-tag']",
+    "candidateSummary": ".summary, .candidate-summary, [data-testid='candidate-summary'], .resume-advantage, [class*='resume-advantage'], .resume-item__basic, [class*='resume-item__basic']",
+    "candidateLink": "a[href*='resume'], a[href*='geek'], .candidate-card a, .search-resume-item a, .search-resume-item-wrap a",
+    "candidateCardChatButton": "button:has-text('打招呼'), button:has-text('立即沟通'), .btn-chat",
+    "nextPageButton": "button:has-text('下一页'), .next, [aria-label='下一页']",
+    "openChatButton": "button:has-text('立即沟通'), button:has-text('打招呼'), .btn-chat",
+    "chatInput": "textarea, [contenteditable='true'], .im-rich-textarea textarea, .im-input textarea",
+    "sendButton": "button:has-text('发送'), .btn-send, .im-chat-editor__send, .im-editor__send",
+    "conversationListItems": ".session-item, .conversation-item, .chat-session-item, .im-session-item",
+    "conversationUnreadBadge": ".unread, .badge, [data-testid='conversation-unread'], .im-session-item__count, .im-session-item__badge",
+    "conversationItems": ".message-item, .chat-item, [data-testid='message-item']",
+    "conversationText": ".text, .message-text, [data-testid='message-text'], .im-message__bubble, .im-message__bubble-inner-wrap, .im-message__card",
+    "unreadConversationItems": ".unread, [data-testid='conversation-unread']",
+    "conversationCandidateName": ".session-name, .chat-user-name, .im-three-list__panel--name, .im-main-panel__title",
+    "detailPanel": ".resume-detail, .candidate-detail, [data-testid='candidate-detail']"
+  },
+  "denyList": {
+    "candidateNames": [],
+    "companies": [],
+    "schools": []
+  }
+}
