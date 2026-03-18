@@ -5,7 +5,7 @@ import { resolveFromRoot } from "./utils.js";
 
 export async function loadConfig(configPath: string): Promise<RecruitAgentConfig> {
   const fullPath = resolveFromRoot(configPath);
-  const raw = await fs.readFile(fullPath, "utf8");
+  const raw = (await fs.readFile(fullPath, "utf8")).replace(/\r\n/g, "\n");
   const parsed = JSON.parse(raw) as RecruitAgentConfig;
 
   parsed.browser.userDataDir = resolveFromRoot(parsed.browser.userDataDir);

@@ -15,19 +15,38 @@ export interface InteractionThreadSnapshot {
   allMessages: string[];
 }
 
+export type ThreadProcessor = (
+  thread: InteractionThreadSnapshot,
+  sendReply: (message: string) => Promise<void>,
+  isFallback: boolean,
+) => Promise<void>;
+
 export class InteractionPage extends BasePage {
   constructor(page: Page, config: RecruitAgentConfig) {
     super(page, config);
   }
 
-  async scanUnread(limit: number): Promise<InteractionThreadSnapshot[]> {
+  /**
+   * 单遍处理互动区：
+   * 阶段一：逐项检查未读角标，发现未读立即点进去处理，处理完再找下一个未读。
+   * 阶段二：若阶段一未发现任何未读，从列表顶部开始，最多处理 fallbackLimit 个会话，
+   *         每个会话处理完毕再进入下一个（跳过我方最后发言的会话）。
+   */
+  async processConversations(
+    unreadLimit: number,
+    fallbackLimit: number,
+    onThread: ThreadProcessor,
+  ): Promise<void> {
     await this.openInteraction();
 
     const items = await this.listConversationItems();
-    const count = Math.min(await items.count().catch(() => 0), limit);
-    const threads: InteractionThreadSnapshot[] = [];
+    const totalCount = await items.count().catch(() => 0);
 
-    for (let index = 0; index < count; index += 1) {
+    // 阶段一：有未读优先处理
+    let foundAnyUnread = false;
+    const unreadScanCount = Math.min(totalCount, unreadLimit);
+
+    for (let index = 0; index < unreadScanCount; index += 1) {
       const item = items.nth(index);
       const sessionText = pickText(await item.innerText().catch(() => ""));
       const unreadText = await this.readFirstText(item.locator(this.config.selectors.conversationUnreadBadge));
@@ -36,70 +55,67 @@ export class InteractionPage extends BasePage {
         continue;
       }
 
+      foundAnyUnread = true;
       await this.humanUiPause(600, 1500);
       await item.click();
       await this.page.waitForTimeout(500);
-      const candidateName = await this.readConversationCandidateName();
-      const allMessages = await this.readConversationMessages();
-      const candidateMessages = await this.readCandidateConversationMessages();
-      const hasResumeAttachmentCard = await this.hasCandidateResumeAttachmentCard();
-      threads.push({
-        threadKey: sessionText || `${candidateName}-${index}`,
-        threadIndex: index,
-        candidateName: candidateName || "unknown",
-        unreadCount,
-        latestReply: candidateMessages.at(-1) ?? allMessages.at(-1) ?? "",
-        latestCandidateReply: candidateMessages.at(-1) ?? "",
-        hasResumeAttachmentCard,
-        allMessages,
-      });
+
+      const snapshot = await this.readCurrentThreadSnapshot(index, sessionText, unreadCount);
+      await onThread(snapshot, (msg) => this.replyCurrentThread(msg), false);
     }
 
-    return threads;
-  }
+    if (foundAnyUnread) {
+      return;
+    }
 
-  async scanRecentNoUnread(limit: number): Promise<InteractionThreadSnapshot[]> {
-    await this.openInteraction();
+    // 阶段二：无未读，从顶部开始兜底，跳过我方最后发言的会话
+    const agentPrefixes = [
+      this.config.messages.opening,
+      this.config.messages.resumeRequest,
+      this.config.messages.rejection,
+      this.config.messages.handover,
+      this.config.messages.resumeReceivedAck,
+      this.config.messages.followUp,
+    ]
+      .filter(Boolean)
+      .map((m) => m!.slice(0, 12));
 
-    const items = await this.listConversationItems();
-    const count = Math.min(await items.count().catch(() => 0), limit);
-    const threads: InteractionThreadSnapshot[] = [];
+    const fallbackScanCount = Math.min(totalCount, fallbackLimit);
 
-    for (let index = 0; index < count; index += 1) {
+    for (let index = 0; index < fallbackScanCount; index += 1) {
       const item = items.nth(index);
       const sessionText = pickText(await item.innerText().catch(() => ""));
-      const unreadText = await this.readFirstText(item.locator(this.config.selectors.conversationUnreadBadge));
-      const unreadCount = this.pickUnreadCount(unreadText, sessionText);
-      if (unreadCount > 0) {
+
+      // 列表预览包含我方话术前缀，直接跳过，不点进去
+      if (agentPrefixes.some((prefix) => sessionText.includes(prefix))) {
         continue;
       }
 
       await this.humanUiPause(600, 1500);
       await item.click();
       await this.page.waitForTimeout(500);
-      const candidateName = await this.readConversationCandidateName();
-      const allMessages = await this.readConversationMessages();
-      const candidateMessages = await this.readCandidateConversationMessages();
-      const hasResumeAttachmentCard = await this.hasCandidateResumeAttachmentCard();
-      if (allMessages.length === 0) {
+
+      const snapshot = await this.readCurrentThreadSnapshot(index, sessionText, 0);
+      if (snapshot.allMessages.length === 0) {
         continue;
       }
 
-      threads.push({
-        threadKey: sessionText || `${candidateName}-${index}`,
-        threadIndex: index,
-        candidateName: candidateName || "unknown",
-        unreadCount,
-        latestReply: candidateMessages.at(-1) ?? allMessages.at(-1) ?? "",
-        latestCandidateReply: candidateMessages.at(-1) ?? "",
-        hasResumeAttachmentCard,
-        allMessages,
-      });
+      await onThread(snapshot, (msg) => this.replyCurrentThread(msg), true);
     }
-
-    return threads;
   }
 
+  /**
+   * 在当前已打开的会话页面直接发送消息，无需重新导航。
+   */
+  async replyCurrentThread(message: string): Promise<void> {
+    await (await this.chatInput()).fill(message);
+    await this.humanUiPause(500, 1200);
+    await (await this.sendButton()).click();
+  }
+
+  /**
+   * 通过索引重新定位并回复（用于到期跟进等需要重新找会话的场景）。
+   */
   async replyToThread(threadIndex: number, message: string): Promise<void> {
     await this.openInteraction();
 
@@ -140,6 +156,29 @@ export class InteractionPage extends BasePage {
     }
 
     return undefined;
+  }
+
+  // 读取当前已打开会话的快照数据
+  private async readCurrentThreadSnapshot(
+    index: number,
+    sessionText: string,
+    unreadCount: number,
+  ): Promise<InteractionThreadSnapshot> {
+    const candidateName = await this.readConversationCandidateName();
+    const allMessages = await this.readConversationMessages();
+    const candidateMessages = await this.readCandidateConversationMessages();
+    const hasResumeAttachmentCard = await this.hasCandidateResumeAttachmentCard();
+
+    return {
+      threadKey: sessionText || `${candidateName}-${index}`,
+      threadIndex: index,
+      candidateName: candidateName || "unknown",
+      unreadCount,
+      latestReply: candidateMessages.at(-1) ?? allMessages.at(-1) ?? "",
+      latestCandidateReply: candidateMessages.at(-1) ?? "",
+      hasResumeAttachmentCard,
+      allMessages,
+    };
   }
 
   private async openInteraction(): Promise<void> {
@@ -252,7 +291,6 @@ export class InteractionPage extends BasePage {
       return true;
     }
 
-    // 兼容“在线简历”场景：候选人发送在线简历时通常包含提示文本或在线简历链接。
     const onlineResumeText = candidateBubbles.filter({ hasText: /在线简历|已发送在线简历|发送在线简历|发送了在线简历/ });
     const onlineTextCount = await onlineResumeText.count().catch(() => 0);
     if (onlineTextCount > 0) {

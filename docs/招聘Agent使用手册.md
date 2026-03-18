@@ -53,6 +53,9 @@ deploy-windows.bat
 
 - 脚本会自动检查并尝试安装 Node.js（通过 `winget`）。
 - 脚本会自动检查并尝试安装 Git 客户端（通过 `winget`）。
+- 脚本默认启用国内镜像优先：
+  - npm：`https://registry.npmmirror.com`
+  - Playwright：`https://npmmirror.com/mirrors/playwright`
 - 本项目是独立 Node.js Agent，不需要额外安装 OpenClaw 运行时。
 
 ### 4. 首次启动
