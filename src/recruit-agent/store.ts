@@ -40,8 +40,14 @@ export async function loadState(stateFile: string): Promise<RecruitAgentState> {
     return state;
   }
 
-  const raw = await fs.readFile(stateFile, "utf8");
-  const parsed = JSON.parse(raw) as Partial<RecruitAgentState>;
+  const raw = (await fs.readFile(stateFile, "utf8")).replace(/\r\n/g, "\n");
+  let parsed: Partial<RecruitAgentState>;
+  try {
+    parsed = raw.trim() ? (JSON.parse(raw) as Partial<RecruitAgentState>) : {};
+  } catch {
+    console.warn("[store] 状态文件解析失败，已重置为初始状态:", stateFile);
+    parsed = {};
+  }
 
   return {
     createdAt: parsed.createdAt ?? nowIso(),
