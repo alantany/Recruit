@@ -6,7 +6,7 @@
     "headless": false,
     "slowMoMs": 150,
     "userDataDir": "./data/browser-profile",
-    "defaultTimeoutMs": 15000
+    "defaultTimeoutMs": 45000
   },
   "storage": {
     "stateFile": "./data/recruit-agent-state.json",
@@ -28,7 +28,7 @@
     "sensitiveKeywords": ["薪资", "年包", "五险一金", "offer", "入职", "出差", "加班", "合同"]
   },
   "daemon": {
-    "enabled": false,
+    "enabled": true,
     "interactionIntervalMinutes": 1,
     "recommendIntervalMinutes": 30,
     "searchIntervalMinutes": 30,
@@ -64,8 +64,8 @@
     "hourlyContactLimit": 8,
     "maxConsecutiveErrors": 3,
     "cooldownHours": 72,
-    "minDelayMs": 45000,
-    "maxDelayMs": 90000,
+    "minDelayMs": 3000,
+    "maxDelayMs": 8000,
     "manualReviewScoreMin": 55,
     "autoContactScoreMin": 72,
     "followUpAfterHours": 24
