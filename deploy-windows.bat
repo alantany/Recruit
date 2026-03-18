@@ -169,16 +169,16 @@ exit /b 0
 :install_node_by_winget
 where winget >nul 2>nul
 if errorlevel 1 (
-  echo [ERROR] winget not found. Please install Node.js LTS manually:
-  echo         https://nodejs.org/
-  exit /b 1
+  echo [WARN] winget not found. Trying PowerShell download installer...
+  call :install_node_by_download
+  exit /b %ERRORLEVEL%
 )
 
 winget install -e --id OpenJS.NodeJS.LTS --accept-source-agreements --accept-package-agreements
 if errorlevel 1 (
-  echo [ERROR] winget failed to install Node.js
-  echo [HINT] Install Node.js LTS manually and rerun this script.
-  exit /b 1
+  echo [WARN] winget failed. Trying PowerShell download installer...
+  call :install_node_by_download
+  exit /b %ERRORLEVEL%
 )
 
 call :refresh_path
@@ -188,6 +188,43 @@ if errorlevel 1 (
   echo [HINT] Re-open terminal and rerun this script.
   exit /b 1
 )
+exit /b 0
+
+:install_node_by_download
+set "NODE_FILE=node-v20.19.0-x64.msi"
+if /I "%PROCESSOR_ARCHITECTURE%"=="ARM64" set "NODE_FILE=node-v20.19.0-arm64.msi"
+if /I "%PROCESSOR_ARCHITECTURE%"=="x86" set "NODE_FILE=node-v20.19.0-x86.msi"
+set "TMP_NODE_MSI=%TEMP%\%NODE_FILE%"
+set "NODE_URL_1=https://nodejs.org/dist/v20.19.0/%NODE_FILE%"
+set "NODE_URL_2=https://npmmirror.com/mirrors/node/v20.19.0/%NODE_FILE%"
+echo [INFO] Downloading Node.js installer: %TMP_NODE_MSI%
+echo [INFO] Try URL 1: %NODE_URL_1%
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; try { Invoke-WebRequest -Uri '%NODE_URL_1%' -OutFile '%TMP_NODE_MSI%' -UseBasicParsing; exit 0 } catch { exit 1 }"
+if errorlevel 1 (
+  echo [WARN] URL 1 failed. Try URL 2...
+  powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+    "[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; try { Invoke-WebRequest -Uri '%NODE_URL_2%' -OutFile '%TMP_NODE_MSI%' -UseBasicParsing; exit 0 } catch { exit 1 }"
+)
+if not exist "%TMP_NODE_MSI%" (
+  echo [ERROR] Failed to download Node.js installer.
+  echo [HINT] Download manually: https://nodejs.org/dist/v20.19.0/%NODE_FILE%
+  exit /b 1
+)
+echo [INFO] Installing Node.js silently...
+msiexec /i "%TMP_NODE_MSI%" /qn /norestart
+if errorlevel 1 (
+  echo [ERROR] Node.js installer failed.
+  echo [HINT] Run manually: %TMP_NODE_MSI%
+  exit /b 1
+)
+call :refresh_path
+where node >nul 2>nul
+if errorlevel 1 (
+  echo [ERROR] Node.js installed but not active. Re-open terminal and rerun.
+  exit /b 1
+)
+echo [OK] Node.js installed by downloaded installer
 exit /b 0
 
 :ensure_git
