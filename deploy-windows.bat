@@ -171,14 +171,14 @@ where winget >nul 2>nul
 if errorlevel 1 (
   echo [WARN] winget not found. Trying PowerShell download installer...
   call :install_node_by_download
-  exit /b %ERRORLEVEL%
+  exit /b !ERRORLEVEL!
 )
 
 winget install -e --id OpenJS.NodeJS.LTS --accept-source-agreements --accept-package-agreements
 if errorlevel 1 (
   echo [WARN] winget failed. Trying PowerShell download installer...
   call :install_node_by_download
-  exit /b %ERRORLEVEL%
+  exit /b !ERRORLEVEL!
 )
 
 call :refresh_path
