@@ -527,15 +527,30 @@ function createSummary(): AgentRunSummary {
   };
 }
 
+function commandLabel(command: string): string {
+  const map: Record<string, string> = {
+    "jobs:sync": "职位同步",
+    "recommend:run": "推荐人才",
+    "search:run": "搜索人才",
+    "potential:run": "潜在人才",
+    "interaction:run": "互动处理",
+    "workflow:run": "全流程",
+    "daemon:run": "守护进程",
+    "report:daily": "日报生成",
+  };
+  return map[command] ?? command;
+}
+
 function printSummary(command: string, summary: AgentRunSummary): void {
-  console.log(`[${command}] jobsSynced=${summary.jobsSynced}`);
-  console.log(`[${command}] discovered=${summary.discovered}`);
-  console.log(`[${command}] scored=${summary.scored}`);
-  console.log(`[${command}] autoContacted=${summary.autoContacted}`);
-  console.log(`[${command}] manualReview=${summary.manualReview}`);
-  console.log(`[${command}] skipped=${summary.skipped}`);
-  console.log(`[${command}] followUps=${summary.followUps}`);
-  console.log(`[${command}] handovers=${summary.handovers}`);
+  const label = commandLabel(command);
+  console.log(`[${label}] 同步职位数=${summary.jobsSynced}`);
+  console.log(`[${label}] 发现候选人数=${summary.discovered}`);
+  console.log(`[${label}] 完成评分数=${summary.scored}`);
+  console.log(`[${label}] 自动触达人数=${summary.autoContacted}`);
+  console.log(`[${label}] 进入人工复核数=${summary.manualReview}`);
+  console.log(`[${label}] 跳过处理数=${summary.skipped}`);
+  console.log(`[${label}] 跟进回复数=${summary.followUps}`);
+  console.log(`[${label}] 转人工数=${summary.handovers}`);
 }
 
 function parseArgs(args: string[]): { command: string; configPath: string } {
