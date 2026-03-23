@@ -24,7 +24,7 @@
     "maxCandidatesPerQuery": 10
   },
   "interaction": {
-    "unreadLimit": 20,
+    "unreadLimit": 50,
     "sensitiveKeywords": ["薪资", "年包", "五险一金", "offer", "入职", "出差", "加班", "合同"]
   },
   "daemon": {

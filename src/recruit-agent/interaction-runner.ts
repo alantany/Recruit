@@ -43,7 +43,7 @@ export async function runInteractionCommand(
 ): Promise<void> {
   await runWithBrowser("interaction:run", config, state, async (browser, summary, notes) => {
     const page = await browser.interactionPage();
-    const fallbackLimit = Math.min(config.interaction.unreadLimit, 20);
+    const fallbackLimit = config.interaction.unreadLimit;
 
     // 单遍处理：阶段一找未读立即处理，阶段二无未读时从顶部顺序处理
     await page.processConversations(
