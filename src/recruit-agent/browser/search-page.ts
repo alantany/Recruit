@@ -49,7 +49,7 @@ export class SearchPage extends BasePage {
       return byClass;
     }
 
-    return this.page.getByPlaceholder("搜公司、职位、专业、学校、行业、技能等");
+    return this.page.getByPlaceholder("搜公司、职位、专业、学校、行业、技能等").first();
   }
 
   private async resolveSearchButton() {
@@ -62,7 +62,7 @@ export class SearchPage extends BasePage {
       }
     }
 
-    return this.page.getByRole("button", { name: /搜\s*索/ });
+    return this.page.getByRole("button", { name: /搜\s*索/ }).first();
   }
 
   private isExcludedSnapshot(snapshot: BrowserCandidateSnapshot, excludes: string[]): boolean {

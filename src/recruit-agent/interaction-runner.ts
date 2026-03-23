@@ -14,10 +14,9 @@ import {
   recordAction,
   setCandidateStatus,
 } from "./store.js";
-import type { AgentRunSummary, CandidateProfile, JobDefinition, RecruitAgentConfig, RecruitAgentState } from "./types.js";
+import type { AgentRunSummary, CandidateProfile, JobDefinition, RecruitAgentConfig, RecruitAgentState, InteractionThreadSnapshot } from "./types.js";
 import { nowIso } from "./utils.js";
 import type { ZhilianBrowserRunner } from "./browser/zhilian.js";
-import type { InteractionThreadSnapshot } from "./browser/interaction-page.js";
 
 type BrowserCallback = (
   browser: ZhilianBrowserRunner,
@@ -112,11 +111,41 @@ async function processThread(
     });
   };
 
-  // 兜底模式下：最后一条是我方消息则跳过
-  if (isFallback && isLikelyAgentOutboundMessage(thread.latestReply, config)) {
-    await audit({ action: "skip_agent_outbound_message", reason: "兜底扫描跳过我方消息" });
+  // 核心门控：只有最后一条消息是对方发的，才允许触发回复
+  // lastSenderIsAgent 由 DOM 类名 --me 直接判断，比话术前缀匹配更可靠
+  const lastSenderIsAgent = thread.lastSenderIsAgent ?? false;
+
+  const candidate = resolveCandidateForThread(state, thread.candidateName, thread.latestReply);
+
+  // --- 简历下载独立逻辑（不受回复门控限制，即使我方最后发言也需要下载简历） ---
+  if (thread.hasResumeAttachmentCard) {
+    const resumeSignature = (thread.latestCandidateReply || thread.latestReply).slice(0, 80) || "attached-resume";
+    const resumeKey = `resume_download:${candidate?.id || "unknown"}:${thread.candidateName}:${resumeSignature}`;
+    if (!hasHandledInteraction(state, resumeKey)) {
+      const parts = [thread.candidateName, thread.jobTitle || "岗位"];
+      if (thread.gender && thread.gender !== "未知") parts.push(thread.gender);
+      if (thread.age && thread.age !== "未知") parts.push(thread.age);
+      const prefix = parts.join("-");
+      const savedFilePath = await ctx.page.downloadResume(prefix);
+      if (savedFilePath) {
+        markHandledInteraction(state, resumeKey);
+        if (candidate) {
+          candidate.resumeAssetPaths = [...new Set([...(candidate.resumeAssetPaths ?? []), savedFilePath])];
+          recordAction(candidate, "resume_downloaded", `自动下载简历成功: ${savedFilePath}`);
+        }
+        notes.push(`自动下载简历: ${thread.candidateName} -> ${savedFilePath}`);
+        const { saveState } = await import("./store.js");
+        await saveState(config.storage.stateFile, state);
+      }
+    }
+  }
+
+  // 最后一条是我方消息 → 不触发回复逻辑，直接退出
+  if (lastSenderIsAgent) {
+    await audit({ action: "skip_agent_last_message", reason: "最后一条是我方消息，不触发回复" });
     return;
   }
+
 
   const unknownReplyKey = buildInteractionReplyKey(undefined, thread);
   if (hasHandledInteraction(state, unknownReplyKey)) {
@@ -124,22 +153,44 @@ async function processThread(
     return;
   }
 
-  const candidate = resolveCandidateForThread(state, thread.candidateName, thread.latestReply);
+  // 针对未知候选人，也尝试判断意图，避免对拒绝沟通的人索要简历
+  const dialogueContext = {
+    candidateName: candidate?.name || thread.candidateName,
+    currentStatus: candidate?.status || "unknown",
+    companyName: ctx.resolveJobForCandidate({ id: "unknown" } as any, state, config).companyName,
+    jobTitle: thread.jobTitle || "待定岗位",
+    latestReply: thread.latestReply,
+    hasResumeAttachmentCard: thread.hasResumeAttachmentCard,
+    history: candidate?.conversations ?? [],
+  };
+
+  const decision: DialogueDecision = await decideDialogueAction(dialogueContext, config);
 
   if (!candidate) {
+    // 场景：未知候选人且明确拒绝 -> 记录并跳过
+    if (decision.intent === "negative") {
+      await audit({ action: "unknown_candidate_rejected", intent: "negative", reason: "拒绝沟通" });
+      markHandledInteraction(state, unknownReplyKey);
+      const { saveState } = await import("./store.js");
+      await saveState(config.storage.stateFile, state);
+      return;
+    }
+
     // 未建档候选人：已发简历则致谢转人工，否则索要简历
     if (thread.hasResumeAttachmentCard) {
       const ackMsg = config.messages.resumeReceivedAck || "感谢您对公司的认可，我们已经收到您的简历，后续会有人事专员与您对接，请保持您的手机畅通。";
       await doSendReply(sendReply, ackMsg, config);
       await audit({ action: "reply_resume_ack_unknown_candidate", replyText: ackMsg });
       addManualHandover(state, {
-        candidateId: `unknown-${thread.threadKey}`,
+        candidateId: `unknown-${thread.candidateName}`,
         candidateName: thread.candidateName,
         reason: "未建档候选人已发简历，转人工跟进",
         latestMessage: thread.latestReply,
         createdAt: nowIso(),
       });
       markHandledInteraction(state, unknownReplyKey);
+      const { saveState } = await import("./store.js");
+      await saveState(config.storage.stateFile, state);
       summary.handovers += 1;
       notes.push(`简历致谢转人工(未建档): ${thread.candidateName}`);
       return;
@@ -149,6 +200,8 @@ async function processThread(
     await doSendReply(sendReply, msg, config);
     await audit({ action: "reply_resume_request_unknown_candidate", replyText: msg });
     markHandledInteraction(state, unknownReplyKey);
+    const { saveState } = await import("./store.js");
+    await saveState(config.storage.stateFile, state);
     summary.followUps += 1;
     notes.push(`索要简历(未建档): ${thread.candidateName}`);
     return;
@@ -174,23 +227,13 @@ async function processThread(
     addManualHandover(state, { candidateId: candidate.id, candidateName: candidate.name, reason: "候选人在发简历后继续追问，需要人工接手", latestMessage: thread.latestReply, createdAt: nowIso() });
     recordAction(candidate, "manual_takeover", "已发送转人工提示");
     markHandledInteraction(state, replyKey);
+    const { saveState } = await import("./store.js");
+    await saveState(config.storage.stateFile, state);
     summary.followUps += 1;
     summary.handovers += 1;
     return;
   }
 
-  const decision: DialogueDecision = await decideDialogueAction(
-    {
-      candidateName: candidate.name,
-      currentStatus: candidate.status,
-      companyName: job.companyName,
-      jobTitle: job.title,
-      latestReply: thread.latestReply,
-      hasResumeAttachmentCard: thread.hasResumeAttachmentCard,
-      history: candidate.conversations ?? [],
-    },
-    config,
-  );
   candidate.replyIntent = decision.intent;
 
   // 未收到简历前，无论意图如何都先索要简历
@@ -202,6 +245,8 @@ async function processThread(
     markContactCounters(state);
     recordAction(candidate, "followed_up", `意图(${decision.intent})先索要简历`);
     markHandledInteraction(state, replyKey);
+    const { saveState } = await import("./store.js");
+    await saveState(config.storage.stateFile, state);
     summary.followUps += 1;
     return;
   }
@@ -217,6 +262,8 @@ async function processThread(
     await audit({ action: "reply_resume_ack_and_mark_handover", candidateId: candidate.id, candidateStatus: candidate.status, intent: decision.intent, replyText: messages.resumeReceivedAck, reason: decision.reason });
     addManualHandover(state, { candidateId: candidate.id, candidateName: candidate.name, reason: "候选人已发送简历，等待人工跟进", latestMessage: thread.latestReply, createdAt: nowIso() });
     markHandledInteraction(state, replyKey);
+    const { saveState } = await import("./store.js");
+    await saveState(config.storage.stateFile, state);
     summary.handovers += 1;
     return;
   }
@@ -226,6 +273,8 @@ async function processThread(
     if (candidate.status === "not_interested_reasoned") {
       recordAction(candidate, "skipped", "候选人已关闭，无需重复回复");
       markHandledInteraction(state, replyKey);
+      const { saveState } = await import("./store.js");
+      await saveState(config.storage.stateFile, state);
       return;
     }
     setCandidateStatus(candidate, "not_interested_reasoned");
@@ -236,6 +285,8 @@ async function processThread(
       await audit({ action: "reply_rejection_closing", candidateId: candidate.id, candidateStatus: candidate.status, intent: decision.intent, replyText: closing, reason: decision.reason });
       markContactCounters(state);
       markHandledInteraction(state, replyKey);
+      const { saveState } = await import("./store.js");
+      await saveState(config.storage.stateFile, state);
       summary.followUps += 1;
     }
     return;
@@ -249,6 +300,8 @@ async function processThread(
   markContactCounters(state);
   recordAction(candidate, "followed_up", `未收到简历，索要简历: ${decision.intent}`);
   markHandledInteraction(state, replyKey);
+  const { saveState } = await import("./store.js");
+  await saveState(config.storage.stateFile, state);
   summary.followUps += 1;
 }
 
@@ -334,8 +387,9 @@ async function doSendReply(
 }
 
 function buildInteractionReplyKey(candidateId: string | undefined, thread: InteractionThreadSnapshot): string {
-  const base = candidateId ? `candidate:${candidateId}` : `thread:${thread.threadKey}`;
-  return `${base}::${thread.latestReply.slice(0, 120)}`;
+  const base = candidateId ? `candidate:${candidateId}` : `candidate_name:${thread.candidateName}`;
+  const content = (thread.latestCandidateReply || thread.latestReply || "").slice(0, 120);
+  return `${base}::${content}`;
 }
 
 function isLikelyAgentOutboundMessage(reply: string, config: RecruitAgentConfig): boolean {

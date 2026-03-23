@@ -20,6 +20,7 @@ export type ActionType =
   | "replied"
   | "search_executed"
   | "manual_takeover"
+  | "resume_downloaded"
   | "skipped"
   | "error";
 
@@ -264,6 +265,22 @@ export interface CandidateProfile {
   updatedAt: string;
   conversations: ConversationTurn[];
   actions: CandidateAction[];
+}
+
+export interface InteractionThreadSnapshot {
+  threadKey: string;
+  threadIndex: number;
+  candidateName: string;
+  gender?: string;
+  age?: string;
+  jobTitle?: string;
+  unreadCount: number;
+  latestReply: string;
+  latestCandidateReply: string;
+  /** 最后一条气泡是否是我方发出的（通过 DOM 类名 --me 判断） */
+  lastSenderIsAgent?: boolean;
+  hasResumeAttachmentCard: boolean;
+  allMessages: string[];
 }
 
 export interface ManualHandover {
