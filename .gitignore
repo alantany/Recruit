@@ -2,11 +2,9 @@ node_modules
 dist
 playwright-report
 test-results
+
+# Playwright 持久化浏览器目录（含登录态与 Cookie，体积大，勿提交）
 data/browser-profile/
-data/interaction-logs/
-data/action-logs/
-data/resumes/
-data/reports/
-data/*.json
-data/*.md
-!.gitkeep
+
+.DS_Store
+**/.DS_Store
