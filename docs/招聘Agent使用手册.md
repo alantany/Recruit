@@ -58,6 +58,13 @@ deploy-windows.bat
   - Playwright：`https://npmmirror.com/mirrors/playwright`
 - 本项目是独立 Node.js Agent，不需要额外安装 OpenClaw 运行时。
 
+**`deploy-windows.bat` 与 `run.bat`：**
+
+| 脚本 | 用途 | 是否每次都要跑 |
+|------|------|------------------|
+| `deploy-windows.bat` | **首次/重装环境**：检查并可选安装 Node、Git，克隆仓库（若需要），`npm install`、Playwright、`build`、`agent:init`，结束时可选择启动一次主线 A | **否**。新电脑、重装系统或依赖坏了再跑 |
+| `run.bat` | **日常**：`git pull`、`npm install`，然后 **`npm run agent:search-interaction-loop`（主线 A）** | **想跑 Agent 时用**（每次要跑主线 A 可双击/执行它） |
+
 ### 4. 首次启动
 
 1. 修改 `config/recruit-agent.json`
