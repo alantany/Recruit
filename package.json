@@ -12,6 +12,7 @@
     "agent:search": "tsx src/recruit-agent/main.ts search:run --config config/recruit-agent.json",
     "agent:potential": "tsx src/recruit-agent/main.ts potential:run --config config/recruit-agent.json",
     "agent:interaction": "tsx src/recruit-agent/main.ts interaction:run --config config/recruit-agent.json",
+    "agent:search-interaction-loop": "tsx src/recruit-agent/main.ts search-interaction:loop --config config/recruit-agent.json",
     "agent:workflow": "tsx src/recruit-agent/main.ts workflow:run --config config/recruit-agent.json",
     "agent:daemon": "tsx src/recruit-agent/main.ts daemon:run --config config/recruit-agent.json",
     "agent:report": "tsx src/recruit-agent/main.ts report:daily --config config/recruit-agent.json",

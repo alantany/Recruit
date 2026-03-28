@@ -8,6 +8,9 @@ export async function loadConfig(configPath: string): Promise<RecruitAgentConfig
   const raw = (await fs.readFile(fullPath, "utf8")).replace(/\r\n/g, "\n");
   const parsed = JSON.parse(raw) as RecruitAgentConfig;
 
+  parsed.automation = {
+    autoWorkEnabled: parsed.automation?.autoWorkEnabled ?? true,
+  };
   parsed.browser.userDataDir = resolveFromRoot(parsed.browser.userDataDir);
   parsed.storage.stateFile = resolveFromRoot(parsed.storage.stateFile);
   parsed.storage.reportDir = resolveFromRoot(parsed.storage.reportDir);
@@ -26,6 +29,19 @@ export async function loadConfig(configPath: string): Promise<RecruitAgentConfig
     jobsSyncIntervalMinutes: parsed.daemon?.jobsSyncIntervalMinutes ?? 180,
     reportIntervalMinutes: parsed.daemon?.reportIntervalMinutes ?? 120,
   };
+  parsed.search = {
+    maxQueriesPerJob: parsed.search?.maxQueriesPerJob ?? 4,
+    maxCandidatesPerQuery: parsed.search?.maxCandidatesPerQuery ?? 10,
+    manualKeyword: parsed.search?.manualKeyword?.trim() || undefined,
+    northeastOnly: parsed.search?.northeastOnly ?? false,
+    topContactCount: parsed.search?.topContactCount ?? 0,
+    forceContactTopN: parsed.search?.forceContactTopN ?? false,
+    sendResumeRequestAfterOpening: parsed.search?.sendResumeRequestAfterOpening ?? false,
+    greetingJobTitle: parsed.search?.greetingJobTitle?.trim() || undefined,
+    ensureNeverChattedFilter: parsed.search?.ensureNeverChattedFilter ?? true,
+    searchResultsWaitMs: parsed.search?.searchResultsWaitMs ?? 20000,
+  };
+  parsed.browser.keepBrowserOpenAfterRun = parsed.browser.keepBrowserOpenAfterRun ?? false;
   parsed.llm = {
     enabled: parsed.llm?.enabled ?? false,
     provider: parsed.llm?.provider ?? "openai_compatible",

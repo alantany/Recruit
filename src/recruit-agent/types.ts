@@ -49,6 +49,7 @@ export interface RecruitingJobConfig {
   minExperienceYears?: number;
   mustHaveKeywords: string[];
   niceToHaveKeywords: string[];
+  /** 用于匹配打分等；「搜索人才」链路不按此项过滤候选人 */
   excludeKeywords: string[];
   openingSummary: string;
 }
@@ -71,6 +72,8 @@ export interface BrowserConfig {
   slowMoMs: number;
   userDataDir: string;
   defaultTimeoutMs: number;
+  /** 为 true 时：search:run 结束后不自动关浏览器，并等待按 Enter 再退出进程 */
+  keepBrowserOpenAfterRun?: boolean;
 }
 
 export interface StorageConfig {
@@ -135,7 +138,19 @@ export interface JobSyncConfig {
 
 export interface SearchConfig {
   maxQueriesPerJob: number;
+  /** 每个搜索关键词下，从上到下最多解析、尝试触达的候选人数（与列表「未聊过」筛选配合） */
   maxCandidatesPerQuery: number;
+  manualKeyword?: string;
+  northeastOnly?: boolean;
+  /** 本轮 search:run 累计最多成功触达几人；0 表示不按此项截断，每条搜索最多处理 maxCandidatesPerQuery 人 */
+  topContactCount?: number;
+  forceContactTopN?: boolean;
+  sendResumeRequestAfterOpening?: boolean;
+  greetingJobTitle?: string;
+  /** 搜索前尽量勾选「未聊过」，避免列表全是已沟通、无「打招呼」按钮 */
+  ensureNeverChattedFilter?: boolean;
+  /** 等待候选人列表行出现的超时（毫秒） */
+  searchResultsWaitMs?: number;
 }
 
 export interface InteractionConfig {
@@ -170,15 +185,28 @@ export interface DenyListConfig {
   schools: string[];
 }
 
+export interface AutomationConfig {
+  autoWorkEnabled: boolean;
+}
+
+/** `search-interaction:loop` 命令：仅「搜索人才 ↔ 互动」往返，不含职位同步/推荐/潜在/日报 */
+export interface SearchInteractionLoopConfig {
+  /** 往返一轮 = 先搜索再互动；0 或未配置表示无限循环直到进程退出 */
+  maxRounds?: number;
+}
+
 export interface RecruitAgentConfig {
   platform: "zhilian";
   dryRun: boolean;
+  automation: AutomationConfig;
   browser: BrowserConfig;
   storage: StorageConfig;
   job: RecruitingJobConfig;
   jobSync: JobSyncConfig;
   search: SearchConfig;
   interaction: InteractionConfig;
+  /** 搜索↔互动循环（见 `search-interaction:loop`） */
+  searchInteractionLoop?: SearchInteractionLoopConfig;
   daemon: DaemonConfig;
   llm: LlmConfig;
   guardrails: GuardrailConfig;
@@ -326,6 +354,7 @@ export interface RecruitAgentState {
 export interface BrowserCandidateSnapshot {
   id: string;
   stableKey?: string;
+  listIndex?: number;
   name: string;
   location?: string;
   age?: number;

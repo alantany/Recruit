@@ -106,17 +106,32 @@ npm run agent:recommend
 - 对高分候选人自动打招呼
 - 当前版本为了避免错岗位归属，推荐页默认只处理首个激活岗位
 
+#### 搜索人才 ↔ 互动区往返循环（不含推荐/潜在/同步职位）
+
+```bash
+npm run agent:search-interaction-loop
+```
+
+逻辑：
+
+- 同一持久化浏览器会话内，**重复**：先执行一轮「搜索人才」（人数上限 `search.maxCandidatesPerQuery`），再执行一轮「互动」（会话扫描上限 `interaction.unreadLimit`）。
+- `searchInteractionLoop.maxRounds`：为 `0` 或未配置表示**无限循环**（Ctrl+C 结束）；为正整数时跑满该轮数后自动退出并关闭浏览器。
+- 需开启 `automation.autoWorkEnabled`，否则每轮只跑搜索、跳过互动区。
+
 #### 处理搜索人才
 
 ```bash
 npm run agent:search
 ```
 
-逻辑：
+逻辑（与当前实现一致）：
 
-- 根据 JD 自动生成搜索关键词
-- 在 `搜索人才` 页面逐组执行搜索
-- 对搜索结果评分并自动打招呼
+- 若配置了 `search.manualKeyword`，则使用该关键词；否则按岗位生成多组搜索词（`maxQueriesPerJob`）。
+- 进入「搜索人才」、（可选）保证「未聊过」筛选、执行搜索后，**向下滚动列表**直至加载足够行数（智联首屏常仅 6～10 条 DOM，需懒加载才能凑满 `maxCandidatesPerQuery`，默认 20）。
+- **搜索列表不按 `job.excludeKeywords` 过滤**；关键词搜到的候选人进入打招呼流程（与「大量索简历」场景对齐）。
+- 对每位候选人：点「打招呼」→「选择沟通职位」→ 发送 `messages.opening`；若 `sendResumeRequestAfterOpening` 为 true，再发 `messages.resumeRequest`。
+- 两次发送之间间隔由 `guardrails.minDelayMs` / `maxDelayMs` 随机控制（默认可配置为约 1～2 秒模拟人工）。
+- 若 `browser.keepBrowserOpenAfterRun` 为 true，任务结束后进程会等待终端按回车再关闭浏览器。
 
 #### 处理潜在人才
 
@@ -219,6 +234,7 @@ npm run agent:report
 
 - `minDelayMs / maxDelayMs` 会用于推荐/搜索触达以及互动区发送，发送前按随机间隔停顿，模拟人工节奏。
 - 页面 UI 操作（如标签切换、会话点击、打开打招呼窗口）也会加入短随机间隔，避免机械化连续点击。
+- 搜索人才若希望「两人之间约 1～2 秒」，可将二者设为 `1000`～`2000`（毫秒）。
 
 建议第一阶段：
 
@@ -241,12 +257,27 @@ npm run agent:report
 #### `search`
 
 - `maxQueriesPerJob`
-- `maxCandidatesPerQuery`
+- `maxCandidatesPerQuery`：每关键词每轮最多解析、尝试打招呼的人数（默认 20）。
+- `manualKeyword`：非空时固定用该关键词搜索。
+- `topContactCount`：为 `0` 时不按「本轮总触达人数」截断；非 0 时限制本轮累计成功触达人数。
+- `sendResumeRequestAfterOpening`：首轮打招呼后是否立即发索要简历话术。
+- `greetingJobTitle`：「选择沟通职位」弹窗内在职位搜索框中输入的关键字，用于匹配在招岗位。
+- `ensureNeverChattedFilter`：尽量勾选「未聊过」筛选。
+- `searchResultsWaitMs`：等待列表行出现的超时。
 
 #### `interaction`
 
 - `unreadLimit`
 - `sensitiveKeywords`
+
+#### `automation`
+
+- `autoWorkEnabled`：自动干活总开关（默认 `true`）。
+
+说明：
+
+- 当 `autoWorkEnabled = false` 时，系统会跳过互动区自动处理（自动回复、自动下载简历、到期跟进），用于页面核验和只读巡检。
+- 推荐/搜索/潜在的人才扫描和评分能力不受该开关影响。
 
 #### `daemon`
 
@@ -384,6 +415,20 @@ npm run agent:workflow
 - 传给模型的是否是“完整历史对话”，而不是最后一条消息
 - 执行层是否只接受白名单动作（`resume_request / closing / ack_and_handover / handover / noop`）
 - 是否有去重键，避免同一条候选人消息重复回复
+
+#### 搜索人才打招呼：常见问题与处理（实践）
+
+| 现象 | 原因 | 处理 |
+|------|------|------|
+| 启动失败 `SingletonLock` / profile 已占用 | 持久化目录 `data/browser-profile` 被占用或残留锁 | 程序会尝试结束占用进程并清理锁后重试；仍失败时请关闭已用同一目录打开的浏览器 |
+| 只打了约 5～6 人而非配置的 20 | 智联列表懒加载，首屏 DOM 行数少 | 已实现搜索后滚动加载，直至行数达到 `maxCandidatesPerQuery` 或不再增加 |
+| 解析快照 0 条或明显偏少 | 历史版本曾受 `excludeKeywords`、`topContactCount` 等影响 | 当前搜索列表不按岗位排除词过滤；`topContactCount` 为 0 时按 `maxCandidatesPerQuery` 拉满 |
+| 日志「未找到未聊过」但页面上有 | 自定义筛选项非标准 `checkbox` | 已增加文案检测；以页面实际勾选为准 |
+| 选职后长时间无输入框 | 原固定等待 IM 侧栏 | 已改为轮询聊天输入框出现；若页面已出现「消息已发送/继续沟通」会走自动完成分支 |
+| 两人间隔过长 | `guardrails` 随机延时过大 | 将 `minDelayMs`/`maxDelayMs` 调至约 1000～2000 |
+| 日志「第 N 套定位器命中」 | KM 职位搜索框多套定位器依次尝试 | 表示第 N 套选择器成功找到输入框，可忽略 |
+
+更完整的需求级说明见 `docs/招聘Agent需求文档.md` §11.7。
 
 ### 11. 下一步建议
 
