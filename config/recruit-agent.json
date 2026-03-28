@@ -40,7 +40,7 @@
     "sensitiveKeywords": ["薪资", "年包", "五险一金", "offer", "入职", "出差", "加班", "合同"]
   },
   "searchInteractionLoop": {
-    "maxRounds": 1
+    "maxRounds": 0
   },
   "daemon": {
     "enabled": true,

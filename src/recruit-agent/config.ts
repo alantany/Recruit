@@ -42,6 +42,9 @@ export async function loadConfig(configPath: string): Promise<RecruitAgentConfig
     searchResultsWaitMs: parsed.search?.searchResultsWaitMs ?? 20000,
   };
   parsed.browser.keepBrowserOpenAfterRun = parsed.browser.keepBrowserOpenAfterRun ?? false;
+  parsed.searchInteractionLoop = {
+    maxRounds: parsed.searchInteractionLoop?.maxRounds ?? 0,
+  };
   parsed.llm = {
     enabled: parsed.llm?.enabled ?? false,
     provider: parsed.llm?.provider ?? "openai_compatible",

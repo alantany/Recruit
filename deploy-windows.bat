@@ -15,7 +15,7 @@ set "ROOT=%~dp0"
 if "%ROOT:~-1%"=="\" set "ROOT=%ROOT:~0,-1%"
 set "WORKDIR=%ROOT%"
 
-echo [STEP 0/7] Check Node.js, npm, Git
+echo [STEP 0/6] Check Node.js, npm, Git
 call :ensure_node_npm
 if errorlevel 1 goto :fail
 call :ensure_git
@@ -28,7 +28,7 @@ cd /d "%WORKDIR%"
 echo [INFO] Project root: %WORKDIR%
 echo.
 
-echo [STEP 0.5/7] Setup mirrors
+echo [STEP 0.5/6] Setup mirrors
 call :setup_mirrors
 if errorlevel 1 goto :fail
 
@@ -38,52 +38,52 @@ echo [INFO] Node: !NODE_VER!
 echo [INFO] Git : !GIT_VER!
 echo.
 
-echo [STEP 1/7] npm install
+echo [STEP 1/6] npm install
 call :run_npm install
 if errorlevel 1 goto :step_fail
 echo [OK] npm install done
 echo.
 
-echo [STEP 2/7] Playwright browser install
+echo [STEP 2/6] Playwright browser install
 call :run_playwright_install
 if errorlevel 1 goto :step_fail
 echo [OK] playwright install done
 echo.
 
-echo [STEP 3/7] Build TypeScript
+echo [STEP 3/6] Build TypeScript
 call :run_npm run build
 if errorlevel 1 goto :step_fail
 echo [OK] build done
 echo.
 
-echo [STEP 4/7] Initialize runtime files
+echo [STEP 4/6] Initialize runtime files
 call :run_npm run agent:init
 if errorlevel 1 goto :step_fail
 echo [OK] init done
 echo.
 
-echo [STEP 5/7] Enable daemon mode in config
-powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-  "(Get-Content '%WORKDIR%\config\recruit-agent.json') -replace '\"enabled\": false', '\"enabled\": true' | Set-Content '%WORKDIR%\config\recruit-agent.json'"
-echo [OK] daemon.enabled set to true
-echo.
-
-echo [STEP 6/7] Dependencies ready
-echo [STEP 7/7] Deployment completed
+echo [STEP 5/6] Deployment completed
+echo ----------------------------------------------------------
+echo Main line A: keyword search - greet - resume ask - interaction loop
+echo   npm run agent:search-interaction-loop
+echo Edit config\recruit-agent.json before first run:
+echo   - search.manualKeyword (or leave plans auto)
+echo   - automation.autoWorkEnabled=true for interaction each round
+echo   - searchInteractionLoop.maxRounds (0 = loop until Ctrl+C)
 echo ----------------------------------------------------------
 echo Next:
-echo 1) Login once in browser profile
-echo 2) Test:   npm run agent:interaction
-echo 3) Full:   npm run agent:workflow
-echo 4) Daemon: npm run agent:daemon
+echo 1) Edit config\recruit-agent.json if needed
+echo 2) Login once in the Playwright browser profile
+echo 3) Run main line A: npm run agent:search-interaction-loop
+echo Optional: agent:workflow (full pipeline^), agent:daemon (scheduled^)
 echo ----------------------------------------------------------
 echo.
 
-choice /M "Start daemon now (agent:daemon)?"
+choice /C YN /M "Start main line A now (agent:search-interaction-loop)?"
 if errorlevel 2 goto :done
 
-echo [INFO] Starting daemon...
-call :run_npm run agent:daemon
+echo [INFO] Starting main line A (search-interaction loop)...
+call :run_npm run agent:search-interaction-loop
 goto :done
 
 :ensure_project_dir
