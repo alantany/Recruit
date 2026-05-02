@@ -1,6 +1,6 @@
 @echo off
 REM 日常启动：拉代码、装依赖、跑主线 A（搜索↔互动循环，Ctrl+C 结束）
-REM 与 deploy-windows.bat 区别：本脚本不负责装机/首次部署，见仓库说明或 docs/招聘Agent使用手册.md
+REM 与 deploy-windows.bat 区别：本脚本不负责装机/首次部署，见 docs/010005-招聘Agent使用手册.md
 cd /d "%~dp0"
 
 echo [FIX] Disable git CRLF conversion...
